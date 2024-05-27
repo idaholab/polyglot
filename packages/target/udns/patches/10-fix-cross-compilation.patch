@@ -1,0 +1,52 @@
+The build sytem for udns is a bizarre facsimile of autotools, but lacks most of
+the actual features of autotools, such as cross-compilation. This patch removes
+the requirement that the compiler be able to produce executables that can be run
+on the current host.
+
+This patch also adds the proper $AR substitution into the Makefile, because BSD
+and GNU ar don't play nicely with each other, and, again: cross-compilation
+requires this.
+
+diff --color -Naur udns-0.5/Makefile.in udns-0.5-new/Makefile.in
+--- udns-0.5/Makefile.in	2024-03-09 07:37:53.000000000 -0700
++++ udns-0.5-new/Makefile.in	2024-05-21 16:44:30.932963965 -0600
+@@ -49,6 +49,7 @@
+ NAMEPFX = $(NAME)-$(VERS)
+ 
+ CC = @CC@
++AR = @AR@
+ CFLAGS = @CFLAGS@
+ CDEFS = @CDEFS@
+ LD = @LD@
+diff --color -Naur udns-0.5/configure.lib udns-0.5-new/configure.lib
+--- udns-0.5/configure.lib	2011-05-23 02:09:15.000000000 -0600
++++ udns-0.5-new/configure.lib	2024-05-21 16:46:08.464186707 -0600
+@@ -125,7 +125,7 @@
+   echo 'int main(int argc, char **argv) { return 0; }' >conftest.c
+ 
+   if [ -n "$CC" ]; then
+-    if ac_run $CC -o conftest conftest.c && ac_run ./conftest; then
++    if ac_run $CC -o conftest conftest.c; then
+       ac_result "\$CC ($CC)"
+     else
+       ac_result no
+@@ -157,19 +157,6 @@
+       CFLAGS=-O
+     fi
+   fi
+-  cc="$CC $CFLAGS"
+-  ccld="$cc"
+-  if [ -n "$LDFLAGS" ]; then ccld="$ccld $LDFLAGS"; fi
+-  if [ -n "$LIBS" ]; then ccld="$ccld $LIBS"; fi
+-  if ac_yesno "whenever the C compiler ($ccld)
+-           can produce executables" \
+-     ac_compile_run <<EOF
+-int main() { return 0; }
+-EOF
+-  then :
+-  else
+-    ac_fatal "no working C compiler found"
+-  fi
+   LD='$(CC)'
+   [ -n "$AR" ] || AR=ar
+   [ -n "$ARFLAGS" ] || ARFLAGS=rv

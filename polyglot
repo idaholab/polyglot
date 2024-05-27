@@ -1,0 +1,609 @@
+#!/usr/bin/env bash
+
+# This file is part of Polyglot.
+#
+# Copyright (C) 2024, Battelle Energy Alliance, LLC ALL RIGHTS RESERVED
+#
+# Polyglot is free software; you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3, or (at your option) any later version.
+#
+# Polyglot is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this software; if not see <http://www.gnu.org/licenses/>.
+
+set -eo pipefail
+
+################################################################################
+
+_original_command="$0"
+for arg in "$@"; do
+    _original_command+="$(printf ' %q' "$arg")"
+done
+unset arg
+
+declare -A verbs=( \
+    [main]='list,build,clean,activate'
+    [list]=''
+    [build]=''
+    [clean]=''
+    [activate]=''
+)
+declare -A shortopts=( \
+    [main]='he:'
+    [list]='haiu'
+    [build]='hvo:'
+    [clean]='h'
+    [activate]='hlp:n'
+)
+declare -A longopts=( \
+    [main]='help,extension:,debug,ignore-git'
+    [list]='help,all,installed,uninstalled'
+    [build]='help,verbose,option:,print-time,print-log'
+    [clean]='help'
+    [activate]='help,local,prompt:,no-prompt'
+)
+
+_has_verb() { # key, what
+    [[ "$2" && ",${verbs[$1]}," =~ ",$2," ]]
+}
+
+parse_options() { # key
+    local key=$1; shift
+    local args="$(split_args_by_verb ${verbs[$key]//,/ } -- "$@")"
+    eval set -- "$args"
+    getopt -o "${shortopts[$key]}" -l "${longopts[$key]}" -- "$@" \
+        || { usage_$key >&2; return 1; }
+}
+
+################################################################################
+
+# utility to strip formatting out of output if not writing to a TTY
+_reformat() { [ -t 1 ] && cat -u || sed -ur $'s/\033\\[[^m]+m//g'; }
+
+# provide a way to easily die early on
+_fatal() { { printf '\033[31;1m%b\033[0m\n' "$1" | _reformat; } >&2; exit 1; }
+
+# should we be displaying verbose information about loading, etc.?
+_debug=
+_debug_log() {
+    [ -z "$_debug" ] || {
+        local msg="$1"; shift
+        printf "\033[2m| $msg\033[0m\n" "$@"
+    } | _reformat
+}
+
+# test to see whether or not we're in a development environment based on where
+# this script is being called from; if it's called from a clone of our git repo,
+# then we assume we're (intentionally) not installed
+_ignore_git=
+_is_development() {
+    if [ -d "$(dirname "$0")/.git" ]; then
+        _debug_log 'detected git repo: %s' "$(dirname "$0")/.git"
+        if [ "$_ignore_git" ]; then
+            _debug_log 'ignoring git repo due to command line switch'
+            return 1
+        else
+            return 0
+        fi
+    else
+        _debug_log 'did not detect git repo'
+    fi
+}
+
+# ensure we have valid XDG_* environment variables, per the official spec.
+#   (c.f. https://specifications.freedesktop.org/basedir-spec)
+_ensure_xdg_environment() {
+    [ "$XDG_DATA_HOME" ] || XDG_DATA_HOME="$HOME/.local/share"
+        # persistent data files
+    [ "$XDG_CONFIG_HOME" ] || XDG_CONFIG_HOME="$HOME/.config"
+        # persistent config files
+    [ "$XDG_STATE_HOME" ] || XDG_STATE_HOME="$HOME/.local/state"
+        # state data that should persist, but not important enough to be
+        # considered "data" (logs, history, recents, reusable state, etc.)
+    [ "$XDG_CACHE_HOME" ] || XDG_CACHE_HOME="$HOME/.cache"
+        # non-essential, persistent data files
+    # [XDG_RUNTIME_DIR does not get a default value, per the spec]
+        # non-essential runtime files (lots of caveats, see the spec)
+    [[ ":$PATH:" == :$HOME/.local/bin: ]] || PATH="$HOME/.local/bin:$PATH"
+        # local bin directory should be present in the path
+    [ "$XDG_DATA_DIRS" ] || XDG_DATA_DIRS="/usr/local/share:/usr/share"
+        # directories to look for data files in addition to $XDG_DATA_HOME
+    [ "$XDG_CONFIG_DIRS" ] || XDG_CONFIG_DIRS="/etc/xdg"
+        # directories to look for config files in addition to $XDG_CONFIG_HOME
+    export XDG_DATA_HOME XDG_CONFIG_HOME XDG_STATE_HOME XDG_CACHE_HOME \
+           XDG_DATA_DIRS XDG_CONFIG_DIRS PATH
+}
+
+# do some early argument parsing (before we know that we have access to GNU
+# getopt, hence the kind of ugly routine) so that we can handle some global
+# options from the get-go
+_parse_args_early() {
+    while (( $# )); do
+        case "$1" in
+        --ignore-git)   _ignore_git=yes ;;
+        --debug)        _debug=yes ;;
+        --)             break ;;
+        *)              ! _has_verb main "$1" || break ;;
+        esac
+        shift
+    done
+}
+
+################################################################################
+
+# do our bootstrap argument parsing
+_parse_args_early "$@"
+
+# figure out our environment paths, but do it differently if we're in a
+# development environment or in production
+if _is_development; then
+    _debug_log 'proceding with development environment'
+    # figure out where our helper script -should- be, source it, then turn it
+    # into a guaranteed absolute, fully-resolved path once we know we have our
+    # GNU utilities in our $PATH properly
+    PGT_HELPER="$(dirname "$0")/scripts/helpers/common.sh"
+    _debug_log 'using assumed Polyglot helper script: %s' "$PGT_HELPER"
+    source "$PGT_HELPER"
+    PGT_HELPER="$(realpath "$PGT_HELPER")"
+    # fill out paths that we haven't been provided yet
+    [ "$PGT_DEV_ROOT" ] || PGT_DEV_ROOT="$(realpath "$(dirname "$0")")"
+    [ "$PGT_DATA"     ] || PGT_DATA="$PGT_DEV_ROOT"
+    [ "$PGT_CONFIG"   ] || PGT_CONFIG="$PGT_DEV_ROOT/config"
+    [ "$PGT_STATE"    ] || PGT_STATE="$PGT_DEV_ROOT/.state"
+    [ "$PGT_CACHE"    ] || PGT_CACHE="$PGT_DEV_ROOT/.cache"
+    _debug_log 'using development root: %s' "$PGT_DEV_ROOT"
+else
+    _debug_log 'proceding with production environment'
+    # make sure we have an XDG-style environment (looking at you macOS...)
+    _ensure_xdg_environment
+    # if we weren't given a data dir, craft a new set from the XDG_* variables
+    # we just ensured are in the environment; the sed is ugly but adds a
+    # polyglot component to each member of the directory set
+    if [ -z "$PGT_DATA" ]; then
+        PGT_DATA="$(sed -re's/^:+//' -e's/:+$//' -e's/(:|$):*/\/polyglot\1/g' \
+                    <<<"$XDG_DATA_HOME:$XDG_DATA_DIRS")"
+    fi
+    # try to locate the helper script relative to any of the data dirs
+    eval declare -a datadirs=(\'${PGT_DATA//:/\' \'}\')
+    for dir in "${datadirs[@]}"; do
+        PGT_HELPER="$dir/scripts/helpers/common.sh"
+        [ ! -e "$PGT_HELPER" ] || break
+        unset PGT_HELPER
+    done
+    unset datadirs
+    [ "$PGT_HELPER" ] \
+        || _fatal "Unable to locate Polyglot helper script!"
+    _debug_log 'found Polyglot helper script at: %s' "$PGT_HELPER"
+    # source our helper, then fix the helper script path
+    source "$PGT_HELPER"
+    PGT_HELPER="$(realpath "$PGT_HELPER")"
+    # now provide defaults for any of the remaining path sets
+    _pgtize() { add_to_paths_in_set '/polyglot' <<<"$1"; }
+    [ "$PGT_CONFIG" ] \
+        || PGT_CONFIG="$(_pgtize "$XDG_CONFIG_HOME:$XDG_CONFIG_DIRS")"
+    [ "$PGT_STATE"  ] \
+        || PGT_STATE="$(_pgtize "$XDG_STATE_HOME")"
+    [ "$PGT_CACHE"  ] \
+        || PGT_CACHE="$(_pgtize "$XDG_CACHE_HOME")"
+fi
+
+# clean up all our path sets
+PGT_DATA="$(ensure_all_set_exists PGT_DATA)" \
+    || _fatal "Unable to locate Polyglot data directory!"
+PGT_CONFIG="$(ensure_all_set_exists PGT_CONFIG)" \
+    || true # missing config directory is okay
+PGT_STATE="$(ensure_all_set_exists PGT_STATE "${PGT_STATE%%:*}")"
+PGT_CACHE="$(ensure_all_set_exists PGT_CACHE "${PGT_CACHE%%:*}")"
+PGT_TOOLCHAINS="$PGT_STATE/toolchains"
+PGT_DOWNLOADS="$PGT_CACHE/downloads"
+
+export PGT_HELPER PGT_DATA PGT_CONFIG PGT_STATE PGT_CACHE \
+       PGT_TOOLCHAINS PGT_DOWNLOADS PGT_PATH PGT_EXTENSIONS
+
+# load all our config files
+for cfg_file in $(_locate_files PGT_CONFIG '*.sh' || true); do
+    _debug_log 'loading config from file: %s' "$cfg_file"
+    source "$cfg_file"
+done
+
+# write debug information about what we've detected
+_debug_log 'initial environment:'
+_debug_log '  $PGT_HELPER     = %s' "$PGT_HELPER"
+_debug_log '  $PGT_DATA       = %s' "$PGT_DATA"
+_debug_log '  $PGT_CONFIG     = %s' "$PGT_CONFIG"
+_debug_log '  $PGT_STATE      = %s' "$PGT_STATE"
+_debug_log '  $PGT_CACHE      = %s' "$PGT_CACHE"
+_debug_log '  $PGT_EXTENSIONS = %s' "$PGT_EXTENSIONS"
+
+# load all our packaging helper scripts since we need a few functions
+source_package_helpers
+
+################################################################################
+
+_prog="$(basename "$0")"
+
+################################################################################
+
+usage_main() { cat <<EOF
+Usage: $_prog [-h] [--ignore-git] [-e<ext> ...] (list|build|clean) ...
+EOF
+}
+
+help_main() { cat <<EOF
+$(usage_main)
+
+Interact with the Polyglot environment.
+
+Verbs:
+  list                      list targets
+  build                     build target toolchains
+  clean                     clean target toolchains
+
+Optional arguments:
+  -h/--help                 display this help message
+  -e/--extension <ext>      enable an extension by name (the tool will search
+                            all <PGT_DATA>/extensions directories for a matching
+                            subdirectory) or absolute path
+  --ignore-git              always use a production environment, regardless of
+                            whether this script is in a cloned git repository
+  --debug                   print debug-level output
+
+Environment variables (used if defined, otherwise provisioned):
+  PGT_DATA                  location(s) for primary Polyglot data
+  PGT_CONFIG                location(s) for Polyglot config files
+  PGT_STATE                 location for runtime files (logs, etc.)
+  PGT_CACHE                 location for temporary files (downloads, etc.)
+  PGT_EXTENSIONS            comma-separated list of extensions to enable
+
+Automatically generated environment variables:
+  PGT_HELPER                location of primary common helper script
+  PGT_TOOLCHAINS            location of built Polyglot target toolchains
+  PGT_DOWNLOADS             location of downloaded files
+
+EOF
+}
+
+main() {
+    # initialize list of extensions
+    local -a extensions=(${PGT_EXTENSIONS//,/ })
+    local ext path
+
+    # parse our top-level command line options
+    local args="$(parse_options main "$@")" || exit
+    eval set -- "$args"; unset args
+    while :; do case "$1" in
+    --help|-h)      help_main; exit 0 ;;
+    --extension|-e) extensions+=("$2"); shift 2 ;;
+    --debug)        shift ;;
+    --ignore-git)   shift ;;
+    --)             shift; break ;;
+    esac; done
+
+    # handle all our extensions and add them on to our data path
+    PGT_EXTENSIONS=
+    for ext in "${extensions[@]}"; do
+        if [ "${ext:0:1}" == / ]; then
+            path="$ext"; [ -e "$ext" ] \
+                || fatal "extension directory doesn't exist: $ext"
+            _debug_log 'found extension by path: %s' "$path"
+        else
+            PGT_EXTENSIONS+="${PGT_EXTENSIONS:+,}$ext"
+            path="$(_locate_file PGT_DATA "extensions/$ext")" \
+                || fatal "unable to locate extension '$ext'"
+            _debug_log 'found extension by name: %s -> %s' "$ext" "$path"
+        fi
+        PGT_DATA="$path:$PGT_DATA"
+    done
+    _debug_log 'updated environment:'
+    (( ! ${#extensions[@]} )) || {
+        _debug_log '  $PGT_EXTENSIONS = %s' "$PGT_EXTENSIONS"
+        _debug_log '  $PGT_DATA       = %s' "$PGT_DATA"
+    }
+
+    # fix our path, now that we've loaded all our config files
+    PGT_PATH="$(_locate_files PGT_DATA 'scripts' '%s:')" || true
+    _debug_log '  $PGT_PATH       = %s' "$PGT_PATH"
+    export PATH="$PGT_PATH$PATH"
+
+    # handle our top-level verbs
+    local verb=$1; shift || true
+    if _has_verb main "$verb"; then
+        _prog+=" $verb"
+        do_$verb "$@"
+    else
+        [ "$verb" ] && fatal "invalid verb: '$verb'" \
+                    || fatal "no verb provided"
+        usage_main >&2
+        return 1
+    fi
+}
+
+################################################################################
+
+usage_list() { cat <<EOF
+Usage: $_prog [-h] (-a|-i|-u) [<target-pattern> ...]
+EOF
+}
+
+help_list() { cat <<EOF
+$(usage_list)
+
+Display information about target toolchains.
+
+Positional arguments:
+  <target-pattern>          target(s) to display; supports globbing; if none are
+                            given, all targets (matching filters) will be shown
+
+Optional arguments:
+  -h/--help                 display this help message
+  -a/--all                  show all targets
+  -i/--installed            only show installed targets
+  -u/--uninstalled          only show uninstalled targets
+
+EOF
+}
+
+do_list() {
+    local filter=all
+
+    # parse our top-level command line options
+    args="$(parse_options list "$@")" || exit
+    eval set -- "$args"; unset args
+    while :; do case "$1" in
+    --help|-h)          help_list; exit 0 ;;
+    --all|-a)           filter=all; shift ;;
+    --installed|-i)     filter=installed; shift ;;
+    --uninstalled|-u)   filter=uninstalled; shift ;;
+    --)                 shift; break ;;
+    esac; done
+
+    local print_fn
+    if [ -t 1 ]; then
+        print_fn=print_toolchain_fancy
+        echo "Targets:"
+    else
+        print_fn=print_toolchain_plain
+    fi
+    {
+        declare -a patterns=("$@")
+        for script in $(_locate_files PGT_DATA 'toolchains/*.sh' || true); do
+            toolchain="$(basename "$script" .sh)"
+            if (( $# )); then
+                for pat in "${patterns[@]}"; do
+                    [[ $toolchain != $pat ]] \
+                        || $print_fn "$toolchain" "$filter"
+                done
+            else
+                $print_fn "$toolchain" "$filter"
+            fi
+        done
+    } | _reformat
+}
+
+toolchain_state() {
+    if is_toolchain_finalized "$1"; then
+        case "$2" in
+        all|installed|'')
+            echo installed ;;
+        *)  echo skip ;;
+        esac
+    elif [ -e "$PGT_TOOLCHAINS/$1" ]; then
+        case "$2" in
+        all|installed|'')
+            echo partial ;;
+        *)  echo skip ;;
+        esac
+    else
+        case "$2" in
+        all|uninstalled|'')
+            echo uninstalled ;;
+        *)  echo skip ;;
+        esac
+    fi
+}
+
+print_toolchain_fancy() {
+    case "$(toolchain_state "$1" "$2")" in
+    installed)   printf ' · \033[32m✔\033[39m %s\033[0m\n' "$1" ;;
+    partial)     printf ' · \033[33m?\033[0m %s\n' "$1" ;;
+    uninstalled) printf ' · \033[31m✘\033[39m \033[2m%s\033[0m\n' "$1" ;;
+    skip)        ;;
+    esac
+}
+
+print_toolchain_plain() {
+    case "$(toolchain_state "$1" "$2")" in
+    skip) ;;
+    *) echo "$1" ;;
+    esac
+}
+
+################################################################################
+
+usage_build() { cat <<EOF
+Usage: $_prog [-h] [-v] [-o<k>[=<v>] ...] <target-pattern> ...
+EOF
+}
+
+help_build() { cat <<EOF
+$(usage_build)
+
+Builds/updates Polyglot target toolchains.
+
+Positional arguments:
+  <target-pattern>          target(s) to build; supports globbing
+
+Optional arguments:
+  -h/--help                 display this help message
+  -v/--verbose              enable verbose output from package build scripts
+  -o/--option <k>[=<v>]     pass an option into the package build scripts
+  --print-log               print out package build log paths when building
+  --print-time              print out package build timing information
+
+EOF
+}
+
+do_build() {
+    local -a args=()
+
+    # parse our top-level command line options
+    args="$(parse_options build "$@")" || exit
+    eval set -- "$args"; unset args
+    while :; do case "$1" in
+    --help|-h)          help_build; exit 0 ;;
+    --verbose|-v)       args+=("$1"); shift ;;
+    --option|-o)        args+=('-o' "$2"); shift 2 ;;
+    --print-*)          args+=("$1"); shift ;;
+    --)                 shift; break ;;
+    esac; done
+
+    local script name
+    while (( $# )); do
+        for script in $(_locate_files PGT_DATA "toolchains/$1.sh" || true); do
+            name="$(basename "$script" .sh)"
+            printf '\033[33;1m[building target \033[35m%s\033[33m]\033[0m\n' \
+                "$name" | _reformat
+            "$script" "${args[@]}" "-p$PGT_TOOLCHAINS/$name" \
+                || fatal "failed to build target toolchain: $name"
+        done
+        shift
+    done
+}
+
+################################################################################
+
+usage_clean() { cat <<EOF
+Usage: $_prog [-h] <target-pattern> ...
+EOF
+}
+
+help_clean() { cat <<EOF
+$(usage_clean)
+
+Uninstalls Polyglot target toolchains.
+
+Positional arguments:
+  <target-pattern>          target(s) to uninstall; supports globbing
+
+Optional arguments:
+  -h/--help                 display this help message
+
+EOF
+}
+
+do_clean() {
+    # parse our top-level command line options
+    args="$(parse_options clean "$@")" || exit
+    eval set -- "$args"; unset args
+    while :; do case "$1" in
+    --help|-h)          help_clean; exit 0 ;;
+    --)                 shift; break ;;
+    esac; done
+
+    local path name
+    while (( $# )); do
+        for path in $(_locate_files PGT_TOOLCHAINS "$1" || true); do
+            name="$(basename "$path")"
+            command_timer.py -l -i1 -m "removing target {F.fg.M}$name{F.X}" \
+                -- rm -rf "$path"
+        done
+        shift
+    done
+}
+
+################################################################################
+
+usage_activate() { cat <<EOF
+Usage: $_prog [-h] [-l] [<target-pattern> ...]
+EOF
+}
+
+help_activate() { cat <<EOF
+$(usage_activate)
+
+Helper to "activate" Polyglot targets in a shell environment.
+
+Positional arguments:
+  <target-pattern>          target(s) to build; supports globbing; if none are
+                            given, all installed targets will be activated
+
+Optional arguments:
+  -h/--help                 display this help message
+  -l/--local                also enable *-local executables in the environment;
+                            this is primarily for supporting build systems
+                            (namely certain versions of autotools) which refuse
+                            to accept our host triples, but support *local* as
+                            a valid 'catch-all'
+
+EOF
+}
+
+do_activate() {
+    local add_local prompt=polyglot
+
+    # parse our top-level command line options
+    args="$(parse_options activate "$@")" || exit
+    eval set -- "$args"; unset args
+    while :; do case "$1" in
+    --help|-h)          help_activate; exit 0 ;;
+    --local|-l)         add_local=yes; shift ;;
+    --prompt|-p)        prompt="$2"; shift 2 ;;
+    --no-prompt|-n)     prompt=""; shift 1 ;;
+    --)                 shift; break ;;
+    esac; done
+
+    # based on what we were given, figure out how to activate those targets
+    local -a targets=()
+    local path name path_add
+    (( $# )) || set -- '*'
+    while (( $# )); do
+        for path in $(_locate_files PGT_TOOLCHAINS "$1" || true); do
+            name="$(basename "$path")"
+            targets+=("$name")
+            path_add+="$path/bin:"
+            [ ! "$add_local" ] || path_add+="$path/bin-local:"
+        done
+        shift
+    done
+
+    # print out some info on what to do with this if stdout is a TTY (i.e. the
+    # output isn't being captured and fed to eval, so it's just printing)
+    [ ! -t 1 ] || {
+        echo "# to actually enact this activation, run:"
+        echo "#     eval \$($_original_command)"
+        echo "# this snippet enables:"
+        for name in "${targets[@]}"; do
+            echo "#   - $name"
+        done
+    } >&2
+
+    # actually print out the snippet to make changes to the environment
+    cat <<-EOF
+	export _PGT_SAVE_PATH="\$PATH"${prompt:+ _PGT_SAVE_PS1=\"\$PS1\";}
+	export _PGT_SAVE_DEACTIVATE="\$(declare -f deactivate)";
+	export PATH=$(printf '%q' "$path_add")\$PATH;
+	deactivate () {
+	    export PATH="\$_PGT_SAVE_PATH"${prompt:+ PS1=\"\$_PGT_SAVE_PS1\"};
+	    unset _PGT_SAVE_PATH${prompt:+ _PGT_SAVE_PS1}; unset -f deactivate;
+	    eval \$_PGT_SAVE_DEACTIVATE; unset _PGT_SAVE_DEACTIVATE;
+	};
+	EOF
+    # if we have a prompt, also print out a bit to update the prompt
+    [ ! "$prompt" ] || cat <<-EOF
+	[ ! -t 1 ] || \
+	case "\$(basename \$SHELL)" in
+	bash) PS1=$'\\[\\e[35;2;1m\][$prompt]\\[\\e[0m\\] '"\$PS1" ;;
+	zsh) PS1=$'%{\\e[35;2;1m%}[$prompt]%{\\e[0m%} '"\$PS1" ;;
+	esac; export PS1;
+	EOF
+}
+
+################################################################################
+
+main "$@"
+exit
+

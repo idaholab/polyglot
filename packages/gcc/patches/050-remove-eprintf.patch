@@ -1,0 +1,40 @@
+Supposedly, the --with-newlibc configure flag removes any __eprintf() defnition,
+but in practice, this seems to no longer function. If an example libc does not
+contain fprintf()/fflush()/stderr, this results in libgcc being uncompilable.
+This patch removes the function prototype from the libgcc2.h header, and removes
+the offending fprintf()/fflush() calls from the __eprintf() definition (so that
+it literally only aborts and nothing else). Hopefully this maintains
+compatibility for anything that is (incorrectly) still relying on __eprintf() in
+combination with --with-newlibc, but removes extraneous dependencies.
+
+diff --color -Naur gcc-13.2.0-orig/libgcc/libgcc2.c gcc-13.2.0/libgcc/libgcc2.c
+--- gcc-13.2.0-orig/libgcc/libgcc2.c	2023-07-27 02:13:07.000000000 -0600
++++ gcc-13.2.0/libgcc/libgcc2.c	2024-04-08 20:54:53.555684107 -0600
+@@ -2235,15 +2235,10 @@
+ #ifdef L_eprintf
+ #ifndef inhibit_libc
+ 
+-#undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
+-#include <stdio.h>
+-
+ void
+ __eprintf (const char *string, const char *expression,
+ 	   unsigned int line, const char *filename)
+ {
+-  fprintf (stderr, string, expression, line, filename);
+-  fflush (stderr);
+   abort ();
+ }
+ 
+diff --color -Naur gcc-13.2.0-orig/libgcc/libgcc2.h gcc-13.2.0/libgcc/libgcc2.h
+--- gcc-13.2.0-orig/libgcc/libgcc2.h	2023-07-27 02:13:07.000000000 -0600
++++ gcc-13.2.0/libgcc/libgcc2.h	2024-04-08 20:54:09.159829778 -0600
+@@ -31,8 +31,6 @@
+ 
+ extern int __gcc_bcmp (const unsigned char *, const unsigned char *, size_t);
+ extern void __clear_cache (void *, void *);
+-extern void __eprintf (const char *, const char *, unsigned int, const char *)
+-  __attribute__ ((__noreturn__));
+ 
+ #ifdef __LIBGCC_HAS_HF_MODE__
+ #define LIBGCC2_HAS_HF_MODE 1

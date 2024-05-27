@@ -1,0 +1,24 @@
+
+%include_noerr <polyglot/$target.specs>
+
+*polyglot_target:
+$target
+
+*polyglot_toolchain:
+gcc:$gcc_target
+
+*target_toolchain:
+gcc
+
+*target_arch:
+$target_arch
+
+*target_os:
+$target_os
+
+*target_binfmt:
+$target_binfmt
+
+*target_abi:
+$target_abi
+

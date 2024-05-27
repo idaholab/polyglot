@@ -1,0 +1,7 @@
+
+*startfile:
+crt0.o%s crti.o%s crtbegin.o%s
+
+*endfile:
+crtend.o%s crtn.o%s
+

@@ -1,0 +1,17 @@
+Remove reference to <linux/mman.h> which is... not technically portable? We
+should maybe add headers like this into Polyglot, but for now they don't exist.
+Also, we don't define MAP_HUGE_2MB, so the point is moot regardless.
+
+diff --color -Naur libxcrypt-4.4.36-orig/lib/alg-yescrypt-platform.c libxcrypt-4.4.36/lib/alg-yescrypt-platform.c
+--- libxcrypt-4.4.36-orig/lib/alg-yescrypt-platform.c	2023-06-20 12:59:26.000000000 -0600
++++ libxcrypt-4.4.36/lib/alg-yescrypt-platform.c	2024-05-23 11:31:55.261341376 -0600
+@@ -21,9 +21,6 @@
+ #ifdef __unix__
+ #include <sys/mman.h>
+ #endif
+-#ifdef __linux__
+-#include <linux/mman.h> /* for MAP_HUGE_2MB */
+-#endif
+ 
+ #define HUGEPAGE_THRESHOLD		(32 * 1024 * 1024)
+ 

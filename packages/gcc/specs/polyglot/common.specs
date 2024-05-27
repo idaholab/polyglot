@@ -1,0 +1,35 @@
+
+%include <polyglot/target.specs>
+
+################################################################################
+
+# define our required macros for this specific target
+*polyglot_macros:
+    -D__polyglot=1 \
+    -D__polyglot_target=%(polyglot_target) \
+    -D__polyglot_toolchain=%(polyglot_toolchain) \
+    -D__target_toolchain_%(target_toolchain)=1 \
+    -D__target_toolchain=%(target_toolchain) \
+    -D__target_arch_%(target_arch)=1 \
+    -D__target_arch=%(target_arch) \
+    -D__target_abi_%(target_abi)=1 \
+    -D__target_abi=%(target_abi) \
+    -D__target_os_%(target_os)=1 \
+    -D__target_os=%(target_os) \
+    -D__target_binfmt_%(target_binfmt)=1 \
+    -D__target_binfmt=%(target_binfmt)
+
+################################################################################
+
+%rename cpp_unique_options old_cpp_unique_options
+%rename post_link old_post_link
+
+# add our target macros to the CPP-specific options
+*cpp_unique_options:
+%(polyglot_macros) %(old_cpp_unique_options)
+
+# augment the post-link to handle ELF branding
+*post_link:
+%(old_post_link)
+brand_elf %{o*:%*;:a.out} %(polyglot_target)
+

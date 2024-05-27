@@ -1,0 +1,5 @@
+# This is an example of a config.sh file.
+# FIXME: this should probably be expanded on
+
+PGT_EXTENSIONS=test-extension
+

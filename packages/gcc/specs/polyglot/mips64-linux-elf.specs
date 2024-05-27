@@ -1,0 +1,21 @@
+
+%rename cc1_options old_cc1_options
+%rename linker old_linker
+
+*startfile:
+crt0.o%s crti.o%s crtbegin.o%s
+
+*lib:
+-lc
+
+*cc1_options:
+    %{mgpopt:-mgpopt;:-mno-gpopt} %<mgpopt %<mno-gpopt \
+    %{G*:-G%*;:-G0} %<G* \
+    %(old_cc1_options)
+
+# FIXME: we really shouldn't be adding this this way, but we need to add an
+#        argument to the linker command early on, and the MIPS linker args are
+#        -hella- complex, so... this works and is Good Enough(TM)
+*linker:
+%(old_linker) %{G*:-G%*;:-G0} %<G* %{melf*:-melf%*;:-melf64btsmip}
+

@@ -1,0 +1,30 @@
+
+## PROJECT-SPECIFIC ############################################################
+
+# local development configuration information
+/config/*.sh
+/.cache
+/.state
+
+## VIM #########################################################################
+# vim files to drop (because yours truly uses vim for... well, everything)
+#   (c.f. https://github.com/github/gitignore/blob/main/Global/Vim.gitignore)
+
+# swap
+[._]*.s[a-v][a-z]
+!*.svg  # comment out if you don't need vector files
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+# session
+Session.vim
+Sessionx.vim
+# temporary
+.netrwhist
+*~
+# auto-generated tag files
+tags
+# persistent undo
+[._]*.un~
+

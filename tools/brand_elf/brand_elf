@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# This file is part of Polyglot.
+#
+# Copyright (C) 2024, Battelle Energy Alliance, LLC ALL RIGHTS RESERVED
+#
+# Polyglot is free software; you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3, or (at your option) any later version.
+#
+# Polyglot is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this software; if not see <http://www.gnu.org/licenses/>.
+
+set -eo pipefail
+
+usage() { cat >&2 <<EOF
+usage: $(basename "$0") <object> <target>
+EOF
+}
+
+fatal() {
+    local msg="$1"; shift
+    printf "$(basename "$0"): $msg\n" "$@" >&2
+    exit 1
+}
+
+[ "$1" ] || { usage; fatal "must be called with a path to object file"; }
+[ "$2" ] || { usage; fatal "must be called with a host triple"; }
+[ -e "$1" ] || fatal "object file doesn't exist: '$1'"
+
+case "$target" in
+*-freebsd-elf*)
+    # Modify the ELF OSABI field
+    "$target-elfedit" --output-osabi=freebsd "$1"
+    # Add FreeBSD branding (needed for older versions)
+    printf "FreeBSD" | dd of="$1" bs=1 seek=8 conv=notrunc status=none
+    ;;
+esac
+

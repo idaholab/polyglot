@@ -1,0 +1,3 @@
+[submodule "libs/libc"]
+	path = libs/libc
+	url = ../polyglot-libc.git

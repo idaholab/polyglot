@@ -1,8 +1,6 @@
 ![Polyglot](docs/images/polyglot-logo.png#gh-light-mode-only)
 ![Polyglot](docs/images/polyglot-logo-dark.png#gh-dark-mode-only)
 
-_Cross-compiling toolchain environment and minimalistic C library._
-
 ## What is Polyglot?
 
 Polyglot is a framework for building tools to run on a variety of targets, with

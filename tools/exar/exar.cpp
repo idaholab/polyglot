@@ -25,6 +25,7 @@
 #include <map>
 #include <vector>
 #include <filesystem>
+#include <cstdarg>
 
 #define VERSION "0.1"
 

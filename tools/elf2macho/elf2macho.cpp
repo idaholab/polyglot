@@ -29,6 +29,7 @@
 #include <vector>
 #include <cassert>
 #include <exception>
+#include <memory>
 
 using namespace std;
 

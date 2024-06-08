@@ -419,10 +419,10 @@ log_command() {
             done
         fi
         # actually run the command via timer
-        command_timer.py \
-            -l -i2 -m "$msg" \
-            -f ">&$log_fd" \
-            -f "2>&1" \
+        command_timer \
+            -i2 -m "$msg" \
+            -E "$log_file" \
+            -O "$log_file" \
             "${env_args[@]}" \
             "${opts[@]}" -- "$@"
         ret=$?
@@ -444,7 +444,7 @@ export GNU_BASE_URL='https://ftp.gnu.org/gnu'
 export GNU_KEYRING_URL="$GNU_BASE_URL/gnu-keyring.gpg"
 
 download_gcc_package() {
-    command_timer.py -L -i2 -m "downloading gcc-$1" -d1 -f "2>&$log_fd" \
+    command_timer -i2 -m "downloading gcc-$1" -E "$log_file" \
     -- download_file.sh \
         --key "$GNU_KEYRING_URL" \
         --signature '%.sig' \
@@ -456,7 +456,7 @@ download_gcc_package() {
 export -f download_gcc_package
 
 download_gnu_package() {
-    command_timer.py -L -i2 -m "downloading $1-$2" -d1 -f "2>&$log_fd" \
+    command_timer -i2 -m "downloading $1-$2" -E "$log_file" \
     -- download_file.sh \
         --key "$GNU_KEYRING_URL" \
         --signature '%.sig' \
@@ -469,7 +469,7 @@ export -f download_gnu_package
 
 download_package() {
     local name="$1"; shift
-    command_timer.py -L -i2 -m "downloading $name" -d1 -f "2>&$log_fd" \
+    command_timer -i2 -m "downloading $name" -E "$log_file" \
     -- download_file.sh "$PGT_DOWNLOADS/by-package/" "$@"
 }
 export -f download_package
@@ -588,6 +588,25 @@ guess_patch_depth() { # path
     return 1
 }
 export -f guess_patch_depth
+
+################################################################################
+
+command_timer() {
+    local src
+    if [ ! -e "$PGT_CACHE/bin/command_timer" ]; then
+        src="$(_locate_file PGT_DATA tools/command_timer.c)" \
+            || fatal "unable to locate command_timer source"
+        mkdir -p "$PGT_CACHE/bin"
+        ${CC:-gcc} \
+            ${SAVE_CPPFLAGS-$CPPFLAGS} \
+            ${SAVE_CFLAGS-$CFLAGS} \
+            ${SAVE_LDFLAGS-$LDFLAGS} \
+            -o "$PGT_CACHE/bin/command_timer" "$src" \
+            ${SAVE_LDLIBS-$LDLIBS}
+    fi
+    "$PGT_CACHE/bin/command_timer" "$@"
+}
+export -f command_timer
 
 ################################################################################
 
@@ -747,9 +766,6 @@ check_for_gnu_prog \
     'cat --version' '\<gnu coreutils\>' \
         --darwin=coreutils:libexec/gnubin
 check_for_gnu_prog \
-    'which --version' '\<gnu which\>' \
-        --darwin=gnu-which:libexec/gnubin
-check_for_gnu_prog \
     'sed --version' '\<gnu sed\>' \
         --darwin=gnu-sed:libexec/gnubin
 check_for_gnu_prog \
@@ -770,6 +786,10 @@ check_for_gnu_prog \
 check_for_gnu_prog \
     'make --version' '\<gnu make [456789]\.' \
         --darwin=make:libexec/gnubin
+# XXX: Debian doesn't actually provide a standard 'which', so this breaks
+# check_for_gnu_prog \
+#     'which --version' '\<gnu which\>' \
+#         --darwin=gnu-which:libexec/gnubin
 
 # these programs -may- get used, but we don't want to die on them unless they
 # are actually used, so just wrap them for the time being
@@ -790,6 +810,8 @@ eval $(wrap_program_with_check \
 
 _get_pgt_paths() {
     local p
+    [ -z "$PGT_CACHE" ] \
+        || printf '%s:' "$PGT_CACHE/bin"
     for p in $(_locate_files PGT_DATA "scripts"); do
         printf '%s:' "$p"
     done

@@ -144,9 +144,9 @@ export -f find_package_files
 is_source_extracted() {
     if [ ! -e "$src_dir/.extracted" ]; then
         [ ! -e "$src_dir" ] \
-            || command_timer.py \
-                -L -i2 -m 'cleaning up source' \
-                -f '>/dev/null' -f '2>&1' \
+            || command_timer \
+                -i2 -m 'cleaning up source' \
+                -E '/dev/null' -O '/dev/null' \
                 -- rm -rf "$src_dir"
         return 1
     else
@@ -175,14 +175,18 @@ write_stamp() {
 export -f write_stamp
 
 clean_tmp() {
-    command_timer.py -L -i2 -m 'cleaning up temporary files' \
-        -f '>/dev/null' -f '2>&1' -- rm -rf "$tmp_dir"
+    command_timer \
+        -i2 -m 'cleaning up temporary files' \
+        -E '/dev/null' -O '/dev/null' \
+        -- rm -rf "$tmp_dir"
 }
 export -f clean_tmp
 
 clean_src() {
-    command_timer.py -L -i2 -m 'cleaning up extracted source' \
-        -f '>/dev/null' -f '2>&1' -- rm -rf "$src_dir"
+    command_timer \
+        -i2 -m 'cleaning up extracted source' \
+        -E '/dev/null' -O '/dev/null' \
+        -- rm -rf "$src_dir"
 }
 export -f clean_src
 

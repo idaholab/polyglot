@@ -333,18 +333,22 @@ def do_fancy_timer():
         # the cursor position again (not sure if we need to do this
         # every time, but I'm also not sure how cross-emulator that
         # behavior is, so we do it just to be safe), then clear the line
-        write(RESTORE_POS + SAVE_POS + CLEAR_LINE)
-        write(args.format_standard, **make_fmt_args())
+        write(RESTORE_POS, flush=False)
+        write(SAVE_POS, flush=False)
+        write(args.format_standard, flush=False, **make_fmt_args())
+        write(CLEAR_LINE)
 
     try:
         if args.hide_cursor:
             write(HIDE_CURSOR, flush=False)
-        write(SAVE_POS + CLEAR_LINE, flush=False)
+        write(SAVE_POS, flush=False)
+        write(CLEAR_LINE, flush=False)
         if args.delay:
             write(args.format_initial, **make_fmt_args(initial=True))
         run_timer(fancy_output)
         needs_final = args.leave or (args.leave_on_failure and status != 0)
-        write(RESTORE_POS + CLEAR_LINE, flush=not needs_final)
+        write(RESTORE_POS, flush=False)
+        write(CLEAR_LINE, flush=not needs_final)
         if needs_final:
             write(args.format_final, **make_fmt_args())
     finally:

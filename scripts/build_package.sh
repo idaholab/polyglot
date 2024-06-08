@@ -78,15 +78,6 @@ esac
 
 ################################################################################
 
-#out_messages[stamp_exit]='\033[2m[package %b already built]\033[0m'
-#out_messages[log_path]='\033[2m(logging to \033[4m%s\033[24m)\033[0m'
-#out_messages[build_start]='\033[1m[building package %b]\033[0m'
-#out_messages[log_time]='\033[2m(build completed in %02d:%02d)\033[0m'
-#log_messages[build_start]='[BEGIN PACKAGE BUILD %s (%s)]'
-log_messages[build_done]='[END PACKAGE BUILD (%s, %s seconds)]'
-
-################################################################################
-
 # pull in our package build environment helpers
 source_package_helpers
 
@@ -174,8 +165,6 @@ export -a cmake_flags=()
 # add our local prefix to host search locations
 host_cppflags+=("-I$prefix/include")
 host_ldflags+=("-L$prefix/lib")
-
-################################################################################
 
 ################################################################################
 

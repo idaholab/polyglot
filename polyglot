@@ -242,6 +242,7 @@ Verbs:
   list                      list targets
   build                     build target toolchains
   clean                     clean target toolchains
+  activate                  helper to activate toolchain(s) in the environment
 
 Optional arguments:
   -h/--help                 display this help message
@@ -305,7 +306,8 @@ main() {
     }
 
     # fix our path, now that we've loaded all our config files
-    PGT_PATH="$(_locate_files PGT_DATA 'scripts' '%s:')" || true
+    PGT_PATH="$PGT_CACHE/bin:$(_locate_files PGT_DATA 'scripts' '%s:')" \
+        || true
     _debug_log '  $PGT_PATH       = %s' "$PGT_PATH"
     export PATH="$PGT_PATH$PATH"
 
@@ -508,7 +510,8 @@ do_clean() {
     while (( $# )); do
         for path in $(_locate_files PGT_TOOLCHAINS "$1" || true); do
             name="$(basename "$path")"
-            command_timer.py -l -i1 -m "removing target {F.fg.M}$name{F.X}" \
+            command_timer -i2 -m "removing target $name" \
+                -E '/dev/null' -O '/dev/null' \
                 -- rm -rf "$path"
         done
         shift

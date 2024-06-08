@@ -23,6 +23,8 @@ case $(get_host_type) in
 darwin)
     # apparently pkg-config "forgets" to link against these... "neat"
     export LIBS="-framework CoreFoundation -framework Carbon"
+    # also we can't use the Homebrew glib because it's not x86_64 for sure
+    configure_flags+=("--with-internal-glib")
     ;;
 esac
 
@@ -54,7 +56,6 @@ do_configure()
         --prefix="$prefix" \
         --program-prefix=$target- \
         --disable-host-tool \
-        --with-internal-glib \
         --with-system-include-path="$target_prefix/include" \
         --with-system-library-path="$target_prefix/lib" \
         --with-pc-path="$target_prefix/lib/pkgconfig"

@@ -37,9 +37,12 @@ do_configure()
 {
     set -exo pipefail
     cd "$build_dir"
+    CFLAGS="-Wno-implicit-int -Wno-implicit-function-declaration -Wno-error" \
     "$src_dir/configure" \
         "${configure_flags[@]}" \
-        --prefix="$prefix"
+        --prefix="$prefix" \
+        --enable-compat \
+        --enable-extended-format
 }
 export -f do_configure
 

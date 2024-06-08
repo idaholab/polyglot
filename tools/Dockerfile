@@ -37,34 +37,29 @@ RUN apt install -y  build-essential file libglib2.0-dev ninja-build pkg-config w
 ## BUILD QEMU-5.2.0 WITH ADDITIONAL DEPRECATED TARGETS #############################################
 
 RUN <<EOF
-# define our version/targets/flags separately so this block can be reused easily
-QEMU_VER=5.2.0
-QEMU_TARGETS=tilegx-linux-user
-QEMU_EXTRA_FLAGS=
 # build in a standalone directory in /tmp
-mkdir -p /tmp/qemu-${QEMU_VER}-build; cd /tmp/qemu-${QEMU_VER}-build
+mkdir -p /tmp/qemu-5.2.0-build; cd /tmp/qemu-5.2.0-build
 # download and extract our source archive (NOTE: we could probably do this without having to install
 # wget and instead acquiring it on the outside and just using an ADD to pull the file into our
 # container, but this is simpler for right now)
-wget https://download.qemu.org/qemu-${QEMU_VER}.tar.xz
-tar xf qemu-${QEMU_VER}.tar.xz
+wget https://download.qemu.org/qemu-5.2.0.tar.xz
+tar xf qemu-5.2.0.tar.xz
 # create a build directory and move into it, then configure/build/install
 mkdir build; cd build
-../qemu-${QEMU_VER}/configure \
+../qemu-5.2.0/configure \
     --static                        `# we want statically linked binaries `\
-    --disable-system                `# we don't care about full-system emulation `\
-    --prefix=/opt/qemu-${QEMU_VER}  `# put it out in /opt for cleanliness/sanity `\
-    --target-list=${QEMU_TARGETS}   `# specify our specific targets `\
-    ${QEMU_EXTRA_FLAGS}             `# add in any extra flags we need for this build `
+    --disable-system                `# we dont care about full-system emulation `\
+    --prefix=/opt/qemu-5.2.0        `# put it out in /opt for cleanliness/sanity `\
+    --target-list=tilegx-linux-user `# specify our specific targets `
 make
 make install
 # for consistency, symlink all our userspace binaries to '*-static' analogues (makes running them
 # from outside the container easier, since this is how the qemu-user-static package does it)
-for exe in $(ls /opt/qemu-${QEMU_VER}/bin/qemu-*); do
-    ln -s ${exe} /opt/qemu-${QEMU_VER}/bin/${exe}-static
+for exe in $(ls /opt/qemu-5.2.0/bin/qemu-*); do
+    ln -s ${exe} /opt/qemu-5.2.0/bin/${exe}-static
 done
 # cleanup our build directory
-cd; rm -rf /tmp/qemu-${QEMU_VER}-build
+cd; rm -rf /tmp/qemu-5.2.0-build
 EOF
 # add our bonus QEMU target binaries to the search path
 ENV PATH="/opt/qemu-5.2.0/bin:${PATH}"

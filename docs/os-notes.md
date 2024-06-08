@@ -48,7 +48,7 @@ development tools from their repos:
 ```bash
 dnf groupinstall -y "Development Tools"
 dnf groupinstall -y "Development Libraries"
-dnf install -y gcc-c++ texinfo
+dnf install -y gcc-c++ texinfo libtool perl-open perl-FindBin
 ```
 
 

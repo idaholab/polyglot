@@ -202,8 +202,8 @@ regarding funding, etc. see the [notice][notice] file in this repository.
 
 [devnotes]:     docs/dev-notes.md
 [osnotes]:      docs/os-notes.md
-[license]:      LICENSE_GPL3.txt
-[notice]:       NOTICE.txt
+[license]:      COPYING
+[notice]:       NOTICE
 [mockingbird]:  https://commons.wikimedia.org/wiki/File:Mimus_polyglottos1.jpg
 [iosevka]:      https://typeof.net/Iosevka/
 

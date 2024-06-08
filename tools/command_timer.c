@@ -63,8 +63,8 @@ int selfpipe_waitpid(int child, int *status)
 #define CLEAR_LINE          "\033[0K"
 #define FMT_INDENT          "%.*s"
 #define FMT_STATUS          "%s "
-#define FMT_TIMER_RUNNING   "\033[34m[%02d:%02d]\033[0m "
-#define FMT_TIMER_DONE      "\033[2m[%02d:%02d]\033[0m "
+#define FMT_TIMER_RUNNING   "\033[34m[%02ld:%02ld]\033[0m "
+#define FMT_TIMER_DONE      "\033[2m[%02ld:%02ld]\033[0m "
 #define FMT_MSG             "%s "
 
 const char* status_working = "\033[34m•\033[0m";
@@ -243,7 +243,7 @@ int do_parent(int child)
             FMT_TIMER_RUNNING FMT_MSG CLEAR_LINE,
             indent, indent_str,
             status_working,
-            elapsed / 60, elapsed % 60,
+            (long)elapsed / 60, (long)elapsed % 60,
             msg);
     fflush(stdout);
     // unblock SIGCHLD so our pipe works as expected
@@ -266,7 +266,7 @@ int do_parent(int child)
                         FMT_TIMER_RUNNING FMT_MSG CLEAR_LINE,
                         indent, indent_str,
                         status_working,
-                        elapsed / 60, elapsed % 60,
+                        (long)elapsed / 60, (long)elapsed % 60,
                         msg);
                 fflush(stdout);
                 break;
@@ -287,7 +287,7 @@ int do_parent(int child)
                     WIFEXITED(status) && (WEXITSTATUS(status) == 0)
                         ? status_success
                         : status_failure,
-                    elapsed / 60, elapsed % 60,
+                    (long)elapsed / 60, (long)elapsed % 60,
                     msg);
             return WIFEXITED(status)
                         ? WEXITSTATUS(status)

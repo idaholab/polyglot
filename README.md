@@ -81,6 +81,12 @@ To build a toolchain, use the `build` verb; for example:
 polyglot build gcc-i386-linux-elf
 ```
 
+> **NOTE:** There is currently an unsolved bug where the build script may die
+> without encountering an error and without printing a meaningful error message.
+> If it seems like your build might be doing this, try re-running the `build`
+> command a time or two, and it (hopefully) will complete successfully. This is
+> under investigation!
+
 To uninstall/clean a toolchain, use the `clean` verb; for example:
 
 ```bash

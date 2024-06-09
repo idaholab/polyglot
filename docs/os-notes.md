@@ -34,10 +34,11 @@ several common distros.
 #### Ubuntu/Debian
 
 Ubuntu and Debian users should run the following commands to install the
-required development tools from the APT repos:
+required development tools (and other requirements) from the APT repos:
 
 ```bash
-apt install -y build-essential g++ texinfo
+apt install -y bash build-essential cmake curl g++ gettext git libglib2.0-dev \
+               libtool rsync texinfo
 ```
 
 #### Fedora

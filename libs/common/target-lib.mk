@@ -41,7 +41,8 @@ $(if $(prefix),,$(error `prefix' variable must be specified))
 $(if $(cachedir),,$(error `cachedir' variable must be specified))
 
 # figure out our include paths, but don't propagate them via recursion
-unexport include_dirs = $(call expand_paths,$(lib_dirs),makefiles)
+include_dirs = $(call expand_paths,$(lib_dirs),makefiles)
+unexport include_dirs
 
 .PHONY: all $(MAKECMDGOALS)
 all $(filter-out all,$(MAKECMDGOALS)): | _recurse ;
@@ -89,10 +90,11 @@ fixheadercache := $(cachedir)/fixed-headers
 #-------------------------------------------------------------------------------
 
 _target_bits   := $(subst -, ,$(target))
-target_arch     = $(let v,$(word 1,$(_target_bits)),$(if $v,$v,unknown))
-target_os       = $(let v,$(word 2,$(_target_bits)),$(if $v,$v,none))
-target_binfmt   = $(let v,$(word 3,$(_target_bits)),$(if $v,$v,binary))
-target_abi      = $(let v,$(word 4,$(_target_bits)),$(if $v,$v,default))
+_default        = $(if $1,$1,$2)
+target_arch     = $(call _default,$(word 1,$(_target_bits)),unknown)
+target_os       = $(call _default,$(word 2,$(_target_bits)),none)
+target_binfmt   = $(call _default,$(word 3,$(_target_bits)),binary)
+target_abi      = $(call _default,$(word 4,$(_target_bits)),default)
 
 #-------------------------------------------------------------------------------
 
@@ -168,7 +170,9 @@ link_paths      = $(patsubst %,$(linkcache)/%.o,$(subst /,_,$(basename $1)))
 undo_link_paths = $(call object_paths,$(foreach p,$1,$(foreach s,\
                         $(sources),$(if $(filter $(notdir \
                         $(call link_paths,$s)),$p),$s))))
-reverse         = $(let f r,$1,$(if $r,$(call reverse,$r) )$f)
+reverse          = $(if $(filter-out $(words $1),0),\
+                           $(lastword $1) $(call reverse,\
+                           $(filter-out $(lastword $1),$1)))
 
 #-------------------------------------------------------------------------------
 

@@ -42,7 +42,7 @@ declare -A shortopts=( \
 declare -A longopts=( \
     [main]='help,extension:,debug,ignore-git'
     [list]='help,all,installed,uninstalled'
-    [build]='help,verbose,option:,print-time,print-log'
+    [build]='help,verbose,option:,only-cache,print-time,print-log'
     [clean]='help'
     [activate]='help,local,prompt:,no-prompt'
 )
@@ -229,7 +229,7 @@ _prog="$(basename "$0")"
 ################################################################################
 
 usage_main() { cat <<EOF
-Usage: $_prog [-h] [--ignore-git] [-e<ext> ...] (list|build|clean) ...
+Usage: $_prog [-h] [--ignore-git] [-e<ext> ...] (list|build|clean|activate) ...
 EOF
 }
 
@@ -443,6 +443,7 @@ Optional arguments:
   -h/--help                 display this help message
   -v/--verbose              enable verbose output from package build scripts
   -o/--option <k>[=<v>]     pass an option into the package build scripts
+  --only-cache              only download packages, don't build anything
   --print-log               print out package build log paths when building
   --print-time              print out package build timing information
 
@@ -459,6 +460,7 @@ do_build() {
     --help|-h)          help_build; exit 0 ;;
     --verbose|-v)       args+=("$1"); shift ;;
     --option|-o)        args+=('-o' "$2"); shift 2 ;;
+    --only-cache)       args+=('-o' 'only-cache=1'); shift ;;
     --print-*)          args+=("$1"); shift ;;
     --)                 shift; break ;;
     esac; done

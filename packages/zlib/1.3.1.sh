@@ -89,10 +89,19 @@ export -f do_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_zlib >/dev/null \
+        || fatal "failed to download zlib"
+    exit 0
+fi
+
+################################################################################
+
 export -A files=()
 
 if ! is_source_extracted; then
-    files[zlib]="$(download_zlib)"
+    files[zlib]="$(download_zlib)" \
+        || fatal "failed to download zlib"
     log_command 'extracting' -- do_extract
     mark_source_extracted
 fi

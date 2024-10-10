@@ -50,6 +50,14 @@ export -f do_headers_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_linux >/dev/null \
+        || fatal "failed to download linux"
+    exit 0
+fi
+
+################################################################################
+
 export -A files=()
 if ! is_source_extracted; then
     files[linux]="$(download_linux)"

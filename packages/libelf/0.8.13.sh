@@ -62,6 +62,14 @@ export -f do_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_libelf >/dev/null \
+        || fatal "failed to download libelf"
+    exit 0
+fi
+
+################################################################################
+
 export -A files=()
 
 if ! is_source_extracted; then

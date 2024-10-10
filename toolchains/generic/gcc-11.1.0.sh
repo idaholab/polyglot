@@ -27,11 +27,15 @@ maybe_call_function() {
         || "$fn" "$@"
 }
 
+# determine if we're only caching
+only_cache="$(get_current_only_cache "$@")"
+
 # figure out our prefix from our arguments, then (maybe) un-finalize our
 # toolchain (if it's already been finalized before)
 prefix=$(get_current_prefix "$@") \
     || fatal "unable to determine toolchain prefix"
-unfinalize_toolchain "$prefix"
+[[ "$only_cache" == 1 ]] \
+    || unfinalize_toolchain "$prefix"
 
 # purely host tools
 maybe_call_function extra_pre_host "$@"
@@ -63,5 +67,6 @@ build_package.sh "$@" target/libxcrypt
 maybe_call_function extra_target "$@"
 
 # and once everything has succeeded, (re-)finalize the toolchain
-finalize_toolchain "$prefix"
+[[ "$only_cache" == 1 ]] \
+    || finalize_toolchain "$prefix"
 

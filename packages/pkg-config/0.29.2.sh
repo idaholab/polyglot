@@ -83,6 +83,14 @@ export -f do_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_pkg_config >/dev/null \
+        || fatal "failed to download pkg-config"
+    exit 0
+fi
+
+################################################################################
+
 export -A files=()
 
 if ! is_source_extracted; then

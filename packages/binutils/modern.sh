@@ -68,6 +68,14 @@ export -f do_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_binutils >/dev/null \
+        || fatal "failed to download binutils"
+    exit 0
+fi
+
+################################################################################
+
 export -A files=()
 
 if ! is_source_extracted; then

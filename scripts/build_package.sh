@@ -197,7 +197,7 @@ mkdir -p "$prefix_src"
 
 # also create directories required for the build
 mkdir -p "$(dirname "$src_dir")"
-mkdir -p "$build_dir"
+[ -e "$build_dir" ] || mkdir -p "$build_dir"
 
 # actually do the build via sourcing our script
 source "$package_script"

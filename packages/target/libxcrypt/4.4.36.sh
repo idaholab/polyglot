@@ -79,6 +79,14 @@ export -f do_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_libxcrypt >/dev/null \
+        || fatal "failed to download libxcrypt"
+    exit 0
+fi
+
+################################################################################
+
 set_target_package
 
 export -A files=()

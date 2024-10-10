@@ -55,10 +55,19 @@ export -f do_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_zstd >/dev/null \
+        || fatal "failed to download zstd"
+    exit 0
+fi
+
+################################################################################
+
 export -A files=()
 
 if ! is_source_extracted; then
-    files[zstd]="$(download_zstd)"
+    files[zstd]="$(download_zstd)" \
+        || fatal "failed to download zstd"
     log_command 'extracting' -- do_extract
     mark_source_extracted
 fi

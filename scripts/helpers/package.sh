@@ -23,44 +23,94 @@ get_current_target() {
         echo "${options[target]}"
         return 0
     fi
-    # scan through our arguments looking for options
-    local -a options=()
-    while (( $# )); do
+    # otherwise scan through arguments
+    local shortopts="ho:c:p:v"
+    local longopts="help,option:,config:,prefix:,print-log,print-time,verbose"
+    local tempargs=$(getopt -o $shortopts -l $longopts -- "$@") \
+        || fatal "invalid arguments specified"
+    eval set -- "$tempargs"
+    local print_help=0 print_time=0 print_log=0
+    local -A options=()
+    local prefix="." verbose=0 package version config=""
+    while :; do
         case "$1" in
-        --option=*) options+=("${1:9:${#1}}"); shift ;;
-        --option)   options+=("$2"); shift 2 ;;
-        --*)        shift ;;
-        -*o*)       options+=("$(sed -r 's/^-[^o]*o//' <<<"$1")"); shift ;;
-        -*o)        options+=("$2"); shift 2 ;;
-        *)          shift ;;
+        --help|-h)      print_help=1; exit 0 ;;
+        --verbose|-v)   verbose=1; shift ;;
+        --option|-o)    [[ $2 == *=* ]] \
+                            && options[${2%%=*}]="${2#*=}" \
+                            || options[$2]='1'
+                        shift 2 ;;
+        --config|-c)    config="$2"; shift 2 ;;
+        --prefix|-p)    prefix="$(readlink -m "$2")"; shift 2 ;;
+        --print-time)   print_time=1; shift ;;
+        --print-log)    print_log=1; shift ;;
+        --)             shift; break ;;
+        *)              break ;;
         esac
     done
-    # now scan through our options looking for targets
-    local opt target
-    for opt in "${options[@]}"; do
-        if [[ "$opt" == target=* ]]; then
-            target="${opt:7:${#opt}}"
-        fi
+    echo "${options[target]}"
+}
+
+get_current_only_cache() {
+    # if we have an options associative array with an only-cache, use that
+    if [ "${options[only-cache]}" ]; then
+        echo "${options[only-cache]}"
+        return 0
+    fi
+    # otherwise scan through arguments
+    local shortopts="ho:c:p:v"
+    local longopts="help,option:,config:,prefix:,print-log,print-time,verbose"
+    local tempargs=$(getopt -o $shortopts -l $longopts -- "$@") \
+        || fatal "invalid arguments specified"
+    eval set -- "$tempargs"
+    local print_help=0 print_time=0 print_log=0
+    local -A options=()
+    local prefix="." verbose=0 package version config=""
+    while :; do
+        case "$1" in
+        --help|-h)      print_help=1; exit 0 ;;
+        --verbose|-v)   verbose=1; shift ;;
+        --option|-o)    [[ $2 == *=* ]] \
+                            && options[${2%%=*}]="${2#*=}" \
+                            || options[$2]='1'
+                        shift 2 ;;
+        --config|-c)    config="$2"; shift 2 ;;
+        --prefix|-p)    prefix="$(readlink -m "$2")"; shift 2 ;;
+        --print-time)   print_time=1; shift ;;
+        --print-log)    print_log=1; shift ;;
+        --)             shift; break ;;
+        *)              break ;;
+        esac
     done
-    # if we found any, print out the last one we found
-    [ "$target" ] && echo "$target"
+    echo "${options[only-cache]}"
 }
 
 get_current_prefix() {
-    # scan through our arguments looking for options
-    local prefix
-    while (( $# )); do
+    local shortopts="ho:c:p:v"
+    local longopts="help,option:,config:,prefix:,print-log,print-time,verbose"
+    local tempargs=$(getopt -o $shortopts -l $longopts -- "$@") \
+        || fatal "invalid arguments specified"
+    eval set -- "$tempargs"
+    local print_help=0 print_time=0 print_log=0
+    local -A options=()
+    local prefix="." verbose=0 package version config=""
+    while :; do
         case "$1" in
-        --prefix=*) prefix="${1:9:${#1}}"; shift ;;
-        --prefix)   prefix="$2"; shift 2 ;;
-        --*)        shift ;;
-        -*p*)       prefix="$(sed -r 's/^-[^p]*p//' <<<"$1")"; shift ;;
-        -*p)        prefix="$2"; shift 2 ;;
-        *)          shift ;;
+        --help|-h)      print_help=1; exit 0 ;;
+        --verbose|-v)   verbose=1; shift ;;
+        --option|-o)    [[ $2 == *=* ]] \
+                            && options[${2%%=*}]="${2#*=}" \
+                            || options[$2]='1'
+                        shift 2 ;;
+        --config|-c)    config="$2"; shift 2 ;;
+        --prefix|-p)    prefix="$(readlink -m "$2")"; shift 2 ;;
+        --print-time)   print_time=1; shift ;;
+        --print-log)    print_log=1; shift ;;
+        --)             shift; break ;;
+        *)              break ;;
         esac
     done
-    # if we found any, print out the last one we found
-    [ "$prefix" ] && echo "$prefix"
+    echo "$prefix"
 }
 
 find_package_script() { # package, [version]

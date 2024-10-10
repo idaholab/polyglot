@@ -301,7 +301,8 @@ do_target_clean()
 {
     set -exo pipefail
     # clean the gcc target libraries so they will fully rebuild
-    make -C "$build_dir" "${make_flags[@]}" distclean-target
+    [[ ! -e "$build_dir/Makefile" ]] \
+        || make -C "$build_dir" "${make_flags[@]}" distclean-target
     # remove target-related things:
     # 1) the entire target directory, since it contains artifacts built with the
     #    previous target/specs state that might not get replaced
@@ -330,6 +331,22 @@ export -f do_target_install
 
 ################################################################################
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    download_gcc >/dev/null \
+        || fatal "failed to download gcc"
+    download_gmp >/dev/null \
+        || fatal "failed to download gmp"
+    download_isl >/dev/null \
+        || fatal "failed to download isl"
+    download_mpc >/dev/null \
+        || fatal "failed to download mpc"
+    download_mpfr >/dev/null \
+        || fatal "failed to download mpfr"
+    exit 0
+fi
+
+################################################################################
+
 export -a gcc_configure_options=()
 gcc_options cpu cpu-32 cpu-64 arch arch-32 arch-64 tune tune-32 tune-64 \
             schedule abi fpu float simd
@@ -338,11 +355,16 @@ case "${config:-default}" in
 host)
     export -A files=()
     if ! is_source_extracted; then
-        files[gcc]="$(download_gcc)"
-        files[gmp]="$(download_gmp)"
-        files[isl]="$(download_isl)"
-        files[mpc]="$(download_mpc)"
-        files[mpfr]="$(download_mpfr)"
+        files[gcc]="$(download_gcc)" \
+            || fatal "failed to download gcc"
+        files[gmp]="$(download_gmp)" \
+            || fatal "failed to download gmp"
+        files[isl]="$(download_isl)" \
+            || fatal "failed to download isl"
+        files[mpc]="$(download_mpc)" \
+            || fatal "failed to download mpc"
+        files[mpfr]="$(download_mpfr)" \
+            || fatal "failed to download mpfr"
         log_command 'extracting' -- do_extract
         log_command 'patching' -- do_patch
         mark_source_extracted
@@ -352,19 +374,27 @@ host)
     fi
     log_command 'building host files' -- do_host_build
     log_command 'installing host files' -- do_host_install
-    # link this build directory in place of the target one, since we need the
-    # context of this host build for the target library builds
-    ln -s "$(basename "$tmp_dir")" "$prefix_tmp/$pkg_group/$pkg_basename-specs"
-    ln -s "$(basename "$tmp_dir")" "$prefix_tmp/$pkg_group/$pkg_basename-target"
     finalize_package --keep-tmp --keep-src
     ;;
 
 specs)
+    if [[ -h "$tmp_dir" ]]; then
+        unlink "$tmp_dir"
+    elif [[ -e "$tmp_dir" ]]; then
+        rm -rf "$tmp_dir"
+    fi
+    ln -s "./$pkg_basename-host" "$tmp_dir"
     generate_specs
     log_command 'checking compiler sanity' -- do_target_sanity
     ;;
 
 target)
+    if [[ -h "$tmp_dir" ]]; then
+        unlink "$tmp_dir"
+    elif [[ -e "$tmp_dir" ]]; then
+        rm -rf "$tmp_dir"
+    fi
+    ln -s "./$pkg_basename-host" "$tmp_dir"
     log_command 'building target files' -- do_target_build
     log_command 'installing target files' -- do_target_install
     ;;

@@ -64,27 +64,6 @@ do_tool_install()
 }
 export -f do_tool_install
 
-#do_install_headers()
-#{
-#    set -ex -o pipefail
-#    lib_make headers-install
-#}
-#export -f do_install_headers
-#
-#do_build()
-#{
-#    set -ex -o pipefail
-#    lib_make all
-#}
-#export -f do_build
-#
-#do_install()
-#{
-#    set -ex -o pipefail
-#    lib_make install
-#}
-#export -f do_install
-
 do_build() {
     local tool
     for tool in "${host_tools[@]}"; do
@@ -100,6 +79,12 @@ do_install() {
     done
 }
 export -f do_install
+
+################################################################################
+
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    exit 0
+fi
 
 ################################################################################
 

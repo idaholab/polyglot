@@ -15,6 +15,10 @@
 # You should have received a copy of the GNU General Public License along with
 # this software; if not see <http://www.gnu.org/licenses/>.
 
+if [[ ${options[only-cache]:-0} == 1 ]]; then
+    exit 0
+fi
+
 export script="${options[script]}"
 export script_pwd="${options[pwd]}"
 export script_args="${options[args]}"
